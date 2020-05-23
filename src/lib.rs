@@ -2,6 +2,8 @@
 #![feature(const_generics)]
 #![feature(maybe_uninit_uninit_array)]
 #![feature(maybe_uninit_extra)]
+#![feature(maybe_uninit_slice_assume_init)]
+#![feature(slice_partition_dedup)]
 
 mod error;
 pub use error::Result;
