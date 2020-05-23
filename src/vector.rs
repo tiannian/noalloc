@@ -14,18 +14,6 @@ impl<T, const N: usize> Vec<T, N> {
         let data = MaybeUninit::uninit_array();
         Vec { data, length: 0 }
     }
-    pub fn append<const O: usize>(&mut self, other: &mut Vec<T, O>) -> Result<()> {
-        let total = self.len() + other.len();
-        if total > self.capacity() {
-            Err(NoallocError::LengthExceed)
-        } else {
-            for i in 0..other.len() {
-                let t = unsafe { other.data[i].read() };
-                self.data[self.len() + i].write(t);
-            }
-            Ok(())
-        }
-    }
 
     #[inline]
     pub fn capacity(&self) -> usize {
@@ -44,6 +32,31 @@ impl<T, const N: usize> Vec<T, N> {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+impl<T, const N: usize> Vec<T, N> {
+    pub fn into_raw_parts(mut self) -> (*mut T, usize, usize) {
+        let slice = &mut self.data[..];
+        let ptr = MaybeUninit::first_ptr_mut(slice);
+        (ptr, self.len(), self.capacity())
+    }
+
+    pub unsafe fn from_row_parts(ptr: *mut T, length: usize, capacity: usize) -> Vec<T, N> {}
+}
+
+impl<T, const N: usize> Vec<T, N> {
+    pub fn append<const O: usize>(&mut self, other: &mut Vec<T, O>) -> Result<()> {
+        let total = self.len() + other.len();
+        if total > self.capacity() {
+            Err(NoallocError::LengthExceed)
+        } else {
+            for i in 0..other.len() {
+                let t = unsafe { other.data[i].read() };
+                self.data[self.len() + i].write(t);
+            }
+            Ok(())
+        }
     }
 
     pub fn split_off<const O: usize>(&mut self, at: usize) -> Vec<T, O> {
@@ -179,4 +192,3 @@ impl<T, const N: usize> DerefMut for Vec<T, N> {
         unsafe { MaybeUninit::slice_get_mut(slice) }
     }
 }
-
