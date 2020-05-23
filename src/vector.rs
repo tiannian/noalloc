@@ -1,5 +1,6 @@
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
+use core::convert::TryInto;
 
 use crate::error::NoallocError;
 use crate::Result;
@@ -33,6 +34,26 @@ impl<T, const N: usize> Vec<T, N> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    pub fn as_slice(&self) -> &[T] {
+        let slice = &self.data[..self.len()];
+        unsafe { MaybeUninit::slice_get_ref(slice) }
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        let slice = &mut self.data[..self.len()];
+        unsafe { MaybeUninit::slice_get_mut(slice) }
+    }
+
+    pub fn as_ptr(&self) -> *const T {
+        let slice = &self.data[..self.len()];
+        unsafe { MaybeUninit::first_ptr(slice) }
+    }
+
+    pub fn as_mut_ptr(&self) -> *mut T {
+        let slice = &mut self.data[..self.len()];
+        unsafe { MaybeUninit::first_ptr_mut(slice) }
+    }
 }
 
 impl<T, const N: usize> Vec<T, N> {
@@ -42,7 +63,17 @@ impl<T, const N: usize> Vec<T, N> {
         (ptr, self.len(), self.capacity())
     }
 
-    pub unsafe fn from_row_parts(ptr: *mut T, length: usize, capacity: usize) -> Vec<T, N> {}
+    pub unsafe fn from_row_parts(ptr: *mut T, length: usize, capacity: usize) -> Vec<T, N> {
+        assert_eq!(N, capacity);
+        let sl = core::ptr::slice_from_raw_parts_mut(ptr, length);
+        let data = unsafe {
+            let p = sl as *mut [MaybeUninit<T>];
+            &*p
+        };
+        Vec {
+            data: data.try_into().unwrap(), length,
+        }
+    }
 }
 
 impl<T, const N: usize> Vec<T, N> {
@@ -112,10 +143,6 @@ where
 }
 
 impl<T, const N: usize> Vec<T, N> {
-    pub fn as_mut_slice(&mut self) -> &mut [T] {
-        let slice = &mut self.data[..];
-        unsafe { MaybeUninit::slice_get_mut(slice) }
-    }
 
     pub fn dedup_by<F>(&mut self, same_bucket: F)
     where
@@ -181,14 +208,14 @@ impl<T, const N: usize> Deref for Vec<T, N> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
-        let slice = &self.data[..];
+        let slice = &self.data[..self.len()];
         unsafe { MaybeUninit::slice_get_ref(slice) }
     }
 }
 
 impl<T, const N: usize> DerefMut for Vec<T, N> {
     fn deref_mut(&mut self) -> &mut [T] {
-        let slice = &mut self.data[..];
+        let slice = &mut self.data[..self.len()];
         unsafe { MaybeUninit::slice_get_mut(slice) }
     }
 }
